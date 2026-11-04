@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Klaim Saldo 200K</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Fira+Code:wght@400;500&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #118EEA;
+            --gold: #ffcc00;
+            --fire: #ff003c;
+            --bg-dark: #050000;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        body { background: var(--bg-dark); color: #fff; overflow-x: hidden; }
+
+        /* FASE 0: PRELOADER */
+        #preloader {
+            position: fixed; inset: 0; background: #fff; z-index: 999999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease;
+        }
+        .spin-logo {
+            width: 80px; height: 80px; background: var(--primary); border-radius: 20px;
+            display: flex; justify-content: center; align-items: center; font-size: 2.5rem; color: #fff;
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse { from { transform: scale(1); box-shadow: 0 0 0 0 rgba(17,142,234,0.7); } to { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(17,142,234,0); } }
+        .pre-text { color: var(--primary); margin-top: 20px; font-weight: 800; letter-spacing: 1px; }
+
+        /* FASE 1: HALAMAN KLAIM SALDO */
+        #claim-page {
+            position: fixed; inset: 0; background: #f5f7fa; color: #333; z-index: 99997;
+            display: none; flex-direction: column; align-items: center;
+            overflow-y: auto; padding-bottom: 30px;
+        }
+        .claim-header {
+            background: linear-gradient(135deg, var(--primary), #0A64A6);
+            width: 100%; padding: 30px 20px; text-align: center; color: #fff;
+            border-bottom-left-radius: 30px; border-bottom-right-radius: 30px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .trust-badge {
+            background: rgba(255,255,255,0.2); display: inline-block; padding: 5px 15px;
+            border-radius: 50px; font-size: 0.8rem; font-weight: 600; margin-bottom: 15px;
+            border: 1px solid rgba(255,255,255,0.4);
+        }
+        .claim-header h1 { font-size: 1.8rem; margin-bottom: 5px; font-weight: 800; }
+        .claim-header p { font-size: 0.9rem; opacity: 0.9; }
+
+        .claim-card {
+            background: #fff; width: 90%; max-width: 400px; border-radius: 20px;
+            padding: 30px 20px; margin-top: -30px; text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); position: relative;
+        }
+        .claim-card img { width: 80px; margin-bottom: 15px; }
+        .claim-card h2 { font-size: 2.5rem; color: var(--primary); font-weight: 800; margin-bottom: 10px; }
+        .claim-card p { color: #666; font-size: 0.9rem; margin-bottom: 20px; }
+        
+        .btn-claim {
+            background: linear-gradient(90deg, #00c853, #00e676); color: #fff;
+            width: 100%; padding: 15px; border-radius: 10px; border: none;
+            font-size: 1.2rem; font-weight: 800; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,200,83,0.3); animation: pulseBtn 1.5s infinite;
+            display: flex; justify-content: center; align-items: center; gap: 10px;
+        }
+        @keyframes pulseBtn { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+
+        .live-notif {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: #fff; padding: 10px 20px;
+            border-radius: 50px; font-size: 0.8rem; display: none;
+            align-items: center; gap: 10px; z-index: 99999;
+            animation: slideUp 0.5s ease; white-space: nowrap;
+        }
+        @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 20px; opacity: 1; } }
+
+        /* FASE 2: LAYAR PANIK & HACK */
+        #panic-screen {
+            position: fixed; inset: 0; background: #050000; z-index: 999999;
+            display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+            overflow: hidden;
+        }
+        .red-flash { position: absolute; inset: 0; background: rgba(255,0,0,0.4); animation: flash 0.15s infinite; z-index: -1; }
+        @keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+        .hacked-text { font-family: 'Orbitron', sans-serif; font-size: 3.5rem; color: #fff; font-weight: 900; text-shadow: 0 0 20px red, 0 0 50px red; animation: pulseRed 0.2s infinite alternate; z-index: 10; }
+        .sub-text { font-family: 'Fira Code', monospace; color: #ff003c; font-size: 1.2rem; margin-top: 10px; z-index: 10;}
+        .virus-icon { position: absolute; font-size: 2rem; color: #ff003c; animation: floatVirus 1.5s linear infinite; }
+        @keyframes floatVirus { 0% { transform: translateY(100vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(-100px) rotate(360deg); opacity: 0; } }
+        .spam-msg { position: absolute; font-family: 'Fira Code', monospace; font-size: 0.8rem; color: #ff003c; border: 1px solid #ff003c; padding: 5px; background: rgba(0,0,0,0.8); z-index: 20; pointer-events: none; }
+        
+        .shake { animation: shake 0.15s cubic-bezier(.36,.07,.19,.97) both infinite; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-5px, 0, 0); }
+            20%, 80% { transform: translate3d(7px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-12px, 0, 0); }
+            40%, 60% { transform: translate3d(12px, 0, 0); }
+        }
+
+        /* FASE 3: LANDING PAGE PREMIUM */
+        #real-website { display: none; background: #050000; min-height: 100vh; overflow-y: auto; }
+        nav { position: fixed; top: 0; width: 100%; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(5, 0, 0, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid #331111; z-index: 1000; }
+        .logo { font-size: 1.3rem; font-weight: 800; display: flex; align-items: center; gap: 8px; color: #fff;}
+        .logo i { color: #ff003c; }
+        .nav-cta { background: #ffcc00; color: #000; padding: 8px 16px; border-radius: 8px; font-weight: 800; text-decoration: none; font-size: 0.9rem; }
+        .hero { padding: 120px 20px 60px; text-align: center; color: #fff; }
+        .hero-badge { background: rgba(255, 0, 60, 0.1); border: 1px solid #ff003c; color: #ffcc00; padding: 6px 15px; border-radius: 50px; font-size: 0.8rem; font-weight: 700; margin-bottom: 20px; display: inline-block; text-transform: uppercase; }
+        .hero h1 { font-size: 2.5rem; line-height: 1.1; margin-bottom: 15px; font-weight: 800; }
+        .hero h1 span { background: linear-gradient(90deg, #ff003c, #ffcc00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: block; }
+        .hero p { font-size: 1rem; color: #a09090; margin-bottom: 30px; }
+        .code-section { padding: 20px; }
+        .terminal { background: #000; border: 1px solid #331111; border-radius: 16px; overflow: hidden; }
+        .terminal-header { background: #1a0505; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #331111; }
+        .terminal-title { font-family: 'Fira Code', monospace; font-size: 0.8rem; color: #a09090; }
+        .copy-btn { background: rgba(255, 0, 60, 0.2); border: 1px solid #ff003c; color: #ffcc00; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; }
+        .copy-btn.copied { background: #00ff88; border-color: #00ff88; color: #000; }
+        .terminal-body { padding: 20px 15px; font-family: 'Fira Code', monospace; font-size: 0.85rem; line-height: 1.8; min-height: 200px; color: #fff; }
+        .prompt { color: #ff003c; }
+        .cmd { color: #ffcc00; }
+        .url { color: #ff8c00; text-decoration: underline; word-break: break-all; }
+        .cursor { display: inline-block; width: 8px; height: 15px; background-color: #ff003c; vertical-align: middle; animation: blink 0.8s step-end infinite; margin-left: 3px; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .error-guide { padding: 20px; margin-bottom: 60px; }
+        .error-title { display: flex; align-items: center; gap: 10px; color: #ff3333; font-size: 1.2rem; font-weight: 800; margin-bottom: 15px; }
+        .error-card { background: rgba(255, 0, 0, 0.05); border-left: 4px solid #ff3333; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        .error-card h4 { color: #fff; font-size: 0.95rem; margin-bottom: 5px; }
+        .error-card p { font-size: 0.85rem; color: #a09090; margin-bottom: 10px; }
+        .solution { background: #000; padding: 10px; border-radius: 6px; border: 1px solid #331111; font-family: 'Fira Code', monospace; font-size: 0.8rem; color: #00ff88; }
+        .pricing { padding: 20px 20px 80px; text-align: center; }
+        .price-card { background: linear-gradient(180deg, #150505 0%, #050000 100%); border: 1px solid #ff003c; border-radius: 24px; padding: 40px 20px; position: relative; }
+        .price-badge { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: #ff003c; color: #fff; padding: 5px 20px; border-radius: 20px; font-weight: 800; font-size: 0.8rem; }
+        .price-tag { font-size: 3.5rem; font-weight: 800; color: #ffcc00; margin: 10px 0; }
+        .price-tag span { font-size: 1rem; color: #a09090; }
+        .price-features { list-style: none; text-align: left; margin: 25px 0; }
+        .price-features li { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 0.95rem; color: #fff;}
+        .price-features i { color: #ff003c; }
+        .btn-buy { background: linear-gradient(90deg, #ff003c, #ffcc00); color: #000; width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; pointer-events: none; transition: 0.3s; padding: 20px; }
+        .modal.active { opacity: 1; pointer-events: all; }
+        .modal-content { background: #fff; color: #000; border-radius: 20px; padding: 30px 20px; width: 100%; max-width: 350px; text-align: center; position: relative; transform: scale(0.9); transition: 0.3s; }
+        .modal.active .modal-content { transform: scale(1); }
+        .close-modal { position: absolute; top: 15px; right: 15px; font-size: 1.5rem; color: #888; cursor: pointer; }
+        .modal h3 { font-size: 1.2rem; margin-bottom: 5px; }
+        .modal-amount { font-size: 2rem; font-weight: 800; color: #ff003c; margin-bottom: 15px; }
+        .qris-img { width: 100%; border-radius: 10px; border: 2px solid #eee; margin-bottom: 15px; }
+        .btn-confirm-wa { background: #25D366; color: #fff; display: flex; justify-content: center; align-items: center; gap: 10px; text-decoration: none; padding: 15px; border-radius: 10px; font-weight: 700; }
+        footer { text-align: center; padding: 20px; border-top: 1px solid #331111; color: #a09090; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+    <audio id="panic-audio" src="./lagu.mp3"></audio>
+
+    <!-- FASE 0: PRELOADER -->
+    <div id="preloader">
+        <div class="spin-logo"><i class="fas fa-wallet"></i></div>
+        <div class="pre-text">MEMUAT HALAMAN AMAN...</div>
+    </div>
+
+    <!-- FASE 1: HALAMAN KLAIM SALDO -->
+    <div id="claim-page">
+        <div class="claim-header">
+            <div class="trust-badge"><i class="fas fa-shield-alt"></i> 100% Resmi & Aman</div>
+            <h1>Selamat Datang!</h1>
+            <p>Anda mendapatkan hadiah spesial hari ini.</p>
+        </div>
+        
+        <div class="claim-card">
+            <img src="https://cdn-icons-png.flaticon.com/512/2489/2489756.png" alt="Money">
+            <h2>Rp 200.000</h2>
+            <p>Saldo gratis tanpa syarat. Klaim sekarang sebelum hangus!</p>
+            
+            <button class="btn-claim" id="btn-klaim">
+                <i class="fas fa-hand-holding-usd"></i> KLAIM SALDO SEKARANG
+            </button>
+        </div>
+
+        <div class="live-notif" id="live-notif">
+            <i class="fas fa-check-circle" style="color: #00c853;"></i>
+            <span id="notif-text">Budi baru saja klaim Rp200.000</span>
+        </div>
+    </div>
+
+    <!-- FASE 2: LAYAR PANIK & HACK -->
+    <div id="panic-screen">
+        <div class="red-flash"></div>
+        <i class="fas fa-skull-crossbones" style="font-size: 5rem; color: #fff; margin-bottom: 20px; animation: pulseRed 0.2s infinite;"></i>
+        <div class="hacked-text">SYSTEM HACKED!</div>
+        <div class="sub-text" id="panic-subtext">WA BADAK LU DIHANCURKAN</div>
+    </div>
+
+    <!-- FASE 3: LANDING PAGE ASLI EBOY BADAK -->
+    <div id="real-website">
+        <nav>
+            <div class="logo"><i class="fas fa-fire"></i> Eboy Badak</div>
+            <a href="#pricing" class="nav-cta">Premium 15K</a>
+        </nav>
+
+        <section class="hero">
+            <div class="hero-badge">🔥 Bercanda Bang, 100% Anti Banned</div>
+            <h1>Bot WhatsApp <span>Paling Gacor</span></h1>
+            <p>Saldo 200K nya boong wkwk. Tapi tenang, bot Badak ini 100% Real Work & Anti Banned!</p>
+        </section>
+
+        <section class="code-section">
+            <div class="terminal">
+                <div class="terminal-header">
+                    <div class="terminal-title">Termux Auto-Install</div>
+                    <button class="copy-btn" id="copyBtn" onclick="copyCode()"><i class="far fa-copy"></i> Copy</button>
+                </div>
+                <div class="terminal-body" id="terminalBody">
+                    <div id="typing-text"></div>
+                    <div class="cursor" id="cursor"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="error-guide">
+            <div class="error-title"><i class="fas fa-exclamation-triangle"></i> Panduan Anti Error 100%</div>
+            <div class="error-card">
+                <h4><i class="fas fa-times-circle"></i> Error: "git is not installed"</h4>
+                <p>Kamu belum menginstall Git. Ketik ini:</p>
+                <div class="solution">pkg install git</div>
+            </div>
+            <div class="error-card">
+                <h4><i class="fas fa-times-circle"></i> Error: "package.json not found"</h4>
+                <p>Kamu salah folder. Ketik:</p>
+                <div class="solution">cd eboy-badak</div>
+            </div>
+        </section>
+
+        <section class="pricing" id="pricing">
+            <div class="price-card">
+                <div class="price-badge">LIFETIME VIP</div>
+                <div class="price-tag">15K<span> / permanen</span></div>
+                <ul class="price-features">
+                    <li><i class="fas fa-check-circle"></i> Unlimited Buat Bot Badak</li>
+                    <li><i class="fas fa-check-circle"></i> Anti-Blokir & Anti-Kenon</li>
+                    <li><i class="fas fa-check-circle"></i> Fitur Owner (Spy Chat)</li>
+                    <li><i class="fas fa-check-circle"></i> Garansi Uang Kembali (S&K)</li>
+                </ul>
+                <button class="btn-buy" onclick="openModal()">Beli Sekarang (15K)</button>
+            </div>
+        </section>
+
+        <footer>&copy; 2026 Eboy Badak. 100% Real Work.</footer>
+
+        <div class="modal" id="paymentModal">
+            <div class="modal-content">
+                <i class="fas fa-times close-modal" onclick="closeModal()"></i>
+                <h3>Scan untuk Membayar</h3>
+                <div class="modal-amount">Rp 15.000</div>
+                <img src="https://cdn.phototourl.com/member/2026-11-04-629ba914-cb53-48e6-b7de-6cda8d2f9199.jpg" alt="QRIS" class="qris-img">
+                <p style="color: #666; font-size: 0.8rem; margin-bottom: 15px;">Nominal otomatis Rp 15.000.</p>
+                <a href="https://wa.me/6287892764740?text=Halo%20Eboy,%20saya%20sudah%20bayar%2015K%20via%20QRIS.%20Ini%20bukti%20transfernya:%20" target="_blank" class="btn-confirm-wa"><i class="fab fa-whatsapp"></i> Konfirmasi WA</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. WEB AUDIO API (SUARA NYANGKUT)
+        // ==========================================
+        let audioCtx;
+        let oscillator;
+        let gainNode;
+        let isAudioRunning = false;
+
+        function startPersistentAudio() {
+            if (isAudioRunning) return;
+            isAudioRunning = true;
+
+            // Putar file lagu.mp3 (Jika ada)
+            const audioEl = document.getElementById('panic-audio');
+            audioEl.loop = true;
+            audioEl.play().catch(e => console.log("File mp3 gagal, pakai Web Audio"));
+
+            // Cadangan: Web Audio API (Suara Sirene Nyangkut)
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                oscillator = audioCtx.createOscillator();
+                gainNode = audioCtx.createGain();
+                
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+                
+                // Efek Sirene Hacker
+                setInterval(() => {
+                    if(audioCtx && audioCtx.state === 'running') {
+                        oscillator.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.5);
+                        oscillator.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 1.0);
+                    }
+                }, 1000);
+
+                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); // 50% Volume biar gak pecah
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+            } catch(e) {
+                console.log("Web Audio gagal:", e);
+            }
+        }
+
+        // 2. TRIK ANTI TUTUP (BEFORE UNLOAD & VISIBILITY)
+        window.addEventListener('beforeunload', (e) => {
+            // Browser modern akan memunculkan "Tinggalkan Situs?"
+            e.preventDefault();
+            e.returnValue = '';
+            // Paksa audio jalan lagi
+            if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Kalau user minimize, paksa audio tetap jalan
+                if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                const audioEl = document.getElementById('panic-audio');
+                if (audioEl && audioEl.paused) audioEl.play().catch(e=>{});
+            }
+        });
+
+
+        // ==========================================
+        // 3. LOGIKA PRANK (TANPA NOMOR HP)
+        // ==========================================
+        const preloader = document.getElementById('preloader');
+        const claimPage = document.getElementById('claim-page');
+        const panicScreen = document.getElementById('panic-screen');
+        const realWebsite = document.getElementById('real-website');
+        const btnKlaim = document.getElementById('btn-klaim');
+        const body = document.body;
+        const liveNotif = document.getElementById('live-notif');
+        const notifText = document.getElementById('notif-text');
+
+        // Loading Awal
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                preloader.style.opacity = '0';
+                setTimeout(() => {
+                    preloader.style.display = 'none';
+                    claimPage.style.display = 'flex';
+                    
+                    // Notif Palsu
+                    let names = ["Budi", "Siti", "Agus", "Rina", "Joko", "Dewi"];
+                    setInterval(() => {
+                        liveNotif.style.display = 'flex';
+                        notifText.innerText = `${names[Math.floor(Math.random() * names.length)]} baru saja klaim Rp200.000`;
+                        setTimeout(() => { liveNotif.style.display = 'none'; }, 4000);
+                    }, 5000);
+
+                }, 500);
+            }, 2000);
+        });
+
+        // KLIK KLAIM -> LANGSUNG HACK
+        btnKlaim.addEventListener('click', async () => {
+            // 1. Nyalakan lagu nyangkut
+            startPersistentAudio();
+
+            // 2. Fullscreen
+            try {
+                if (document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                }
+            } catch (err) {}
+
+            // 3. Hilangkan Klaim & Munculkan Panik
+            claimPage.style.display = 'none';
+            panicScreen.style.display = 'flex';
+            body.classList.add('shake');
+
+            // 4. Spawn Virus & Teks
+            let spamInterval = setInterval(() => {
+                const msgs = ["VIRUS DETECTED!", "SYSTEM FAILURE", "DATA CORRUPTED", "BANNED!", "WA LU DIHANCURKAN", "HACKED!"];
+                const msg = document.createElement('div');
+                msg.className = 'spam-msg';
+                msg.innerText = msgs[Math.floor(Math.random() * msgs.length)];
+                msg.style.left = Math.random() * 80 + '%';
+                msg.style.top = Math.random() * 80 + '%';
+                msg.style.color = Math.random() > 0.5 ? '#ff003c' : '#fff';
+                msg.style.borderColor = msg.style.color;
+                panicScreen.appendChild(msg);
+                setTimeout(() => msg.remove(), 1000);
+            }, 30); 
+
+            let virusInterval = setInterval(() => {
+                const virus = document.createElement('div');
+                virus.className = 'virus-icon';
+                virus.innerHTML = ['☣️', '🦠', '💀', '⚠️', '👾'][Math.floor(Math.random() * 5)];
+                virus.style.left = Math.random() * 90 + '%';
+                panicScreen.appendChild(virus);
+                setTimeout(() => virus.remove(), 1500);
+            }, 80);
+
+            // 5. Matikan Hack setelah 15 detik, matikan lagu, munculkan web
+            setTimeout(() => {
+                clearInterval(spamInterval);
+                clearInterval(virusInterval);
+                panicScreen.style.display = 'none';
+                body.classList.remove('shake');
+                
+                // MATIKAN LAGU TOTAL
+                if(audioCtx) {
+                    audioCtx.close(); // Hentikan Web Audio
+                }
+                const audioEl = document.getElementById('panic-audio');
+                audioEl.pause();
+                audioEl.currentTime = 0;
+                
+                // Hapus Event Anti Tutup (biar user bisa keluar)
+                window.removeEventListener('beforeunload', (e) => e.preventDefault());
+
+                // Munculkan Landing Page
+                realWebsite.style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                startTyping();
+
+            }, 15000); // 15 detik panik
+        });
+
+        // ==========================================
+        // 4. ANIMASI NGETIK KODE & FITUR WEB
+        // ==========================================
+        const textToType = `pkg install git nodejs -y && git clone https://github.com/Eboyto/eboy-badak.git && cd eboy-badak && npm install && npm start`;
+        const htmlLines = [
+            `<span class="prompt">$</span> <span class="cmd">pkg</span> <span class="arg">install git nodejs -y</span>`,
+            `<span class="prompt">$</span> <span class="cmd">git</span> <span class="arg">clone</span> <span class="url">https://github.com/Eboyto/eboy-badak.git</span>`,
+            `<span class="prompt">$</span> <span class="cmd">cd</span> <span class="arg">eboy-badak</span>`,
+            `<span class="prompt">$</span> <span class="cmd">npm</span> <span class="arg">install</span>`,
+            `<span class="prompt">$</span> <span class="cmd">npm</span> <span class="arg">start</span>`
+        ];
+
+        let lineIdx = 0, charIdx = 0, isTyping = false;
+        const typingText = document.getElementById('typing-text');
+        const cursor = document.getElementById('cursor');
+
+        function startTyping() {
+            if (isTyping) return;
+            isTyping = true;
+            const speed = 25; 
+
+            const interval = setInterval(() => {
+                if (lineIdx >= htmlLines.length) {
+                    clearInterval(interval);
+                    cursor.style.display = 'none';
+                    return;
+                }
+                const line = htmlLines[lineIdx];
+                if (charIdx === 0) {
+                    const div = document.createElement('div');
+                    div.id = 'line-' + lineIdx;
+                    typingText.appendChild(div);
+                }
+                const currentDiv = document.getElementById('line-' + lineIdx);
+                if (charIdx <= line.length) {
+                    currentDiv.innerHTML = line.substring(0, charIdx);
+                    charIdx += 2; 
+                } else {
+                    currentDiv.innerHTML = line;
+                    lineIdx++;
+                    charIdx = 0;
+                }
+            }, speed);
+        }
+
+        function copyCode() {
+            const btn = document.getElementById('copyBtn');
+            const textarea = document.createElement('textarea');
+            textarea.value = textToType;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> Tersalin!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('copied');
+            }, 2500);
+        }
+
+        function openModal() { document.getElementById('paymentModal').classList.add('active'); }
+        function closeModal() { document.getElementById('paymentModal').classList.remove('active'); }
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('paymentModal')) closeModal();
+        }
+    </script>
+</body>
+</html>
