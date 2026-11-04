@@ -1,0 +1,7 @@
+node_modules/
+auth/
+sessions/
+data/
+phone.txt
+bot.log
+package-lock.json
