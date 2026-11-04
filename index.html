@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EBOY BADAK | System Interface</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Outfit:wght@300;400;600;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.0/vanilla-tilt.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #030308;
+            --glass-bg: rgba(10, 10, 18, 0.4);
+            --glass-border: rgba(0, 240, 255, 0.15);
+            --text: #ffffff;
+            --text-muted: #7e8c9f;
+            --cyan: #00f0ff;
+            --purple: #9d00ff;
+            --green: #00ff88;
+            --gold: #ffcc00;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* LAUNCHER */
+        #launcher {
+            position: fixed; inset: 0; background: var(--bg); z-index: 99999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.8s ease, visibility 0.8s;
+        }
+        .launcher-ring {
+            width: 120px; height: 120px; border-radius: 50%;
+            border: 2px solid transparent; border-top-color: var(--cyan); border-bottom-color: var(--purple);
+            animation: spin 1.5s linear infinite; position: relative;
+        }
+        .launcher-ring::before {
+            content: ''; position: absolute; inset: 10px; border-radius: 50%;
+            border: 2px solid transparent; border-left-color: var(--green); border-right-color: var(--cyan);
+            animation: spin 1s linear infinite reverse;
+        }
+        .launcher-icon {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 2rem; color: var(--cyan); text-shadow: 0 0 20px var(--cyan);
+            animation: pulse 1s infinite alternate;
+        }
+        .launcher-text {
+            margin-top: 40px; font-family: 'Fira Code', monospace;
+            color: var(--cyan); font-size: 0.9rem; letter-spacing: 3px; text-transform: uppercase; text-align: center;
+        }
+        .launcher-progress {
+            width: 200px; height: 2px; background: rgba(255,255,255,0.1);
+            margin-top: 15px; border-radius: 2px; overflow: hidden;
+        }
+        .launcher-bar {
+            height: 100%; width: 0%; background: var(--cyan);
+            box-shadow: 0 0 10px var(--cyan); transition: width 0.3s ease;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0% { opacity: 0.5; } 100% { opacity: 1; text-shadow: 0 0 30px var(--cyan); } }
+
+        /* CANVAS */
+        #bg-canvas { position: fixed; inset: 0; z-index: -1; opacity: 0.4; }
+
+        /* CONTAINER */
+        .container { 
+            width: 100%; max-width: 480px; padding: 20px; margin-top: 5vh; margin-bottom: 50px;
+            position: relative; z-index: 10; opacity: 0; transform: translateY(20px); transition: all 1s ease;
+        }
+        .container.loaded { opacity: 1; transform: translateY(0); }
+
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { 
+            font-family: 'Orbitron', sans-serif; font-size: 2.2rem; font-weight: 900; letter-spacing: 2px;
+            background: linear-gradient(90deg, #fff, var(--cyan), #fff); background-size: 200% auto; 
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shine 3s linear infinite;
+        }
+        @keyframes shine { to { background-position: 200% center; } }
+        .header p { font-family: 'Fira Code', monospace; color: var(--text-muted); font-size: 0.75rem; letter-spacing: 2px; margin-top: 8px; }
+
+        /* GLASS CARD */
+        .glass-card { 
+            background: var(--glass-bg); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border); border-radius: 20px; padding: 30px 25px; 
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 40px rgba(0, 240, 255, 0.05) inset;
+            position: relative; transform-style: preserve-3d;
+        }
+        .glass-card::before {
+            content: ''; position: absolute; top: 0; left: 10%; width: 80%; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent); box-shadow: 0 0 10px var(--cyan);
+        }
+
+        /* INPUT */
+        .form-group { margin-bottom: 25px; transform: translateZ(20px); }
+        .form-group label { display: block; font-size: 0.75rem; color: var(--cyan); margin-bottom: 10px; font-family: 'Fira Code', monospace; letter-spacing: 1px; }
+        .input-wrapper { position: relative; }
+        .input-wrapper i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .form-control { 
+            width: 100%; padding: 16px 16px 16px 45px; background: rgba(0, 0, 0, 0.5); 
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: #fff; font-family: 'Fira Code', monospace; font-size: 1rem; outline: none; transition: 0.3s; 
+        }
+        .form-control:focus { border-color: var(--cyan); box-shadow: 0 0 20px rgba(0, 240, 255, 0.15); background: rgba(0, 0, 0, 0.7); }
+
+        /* SLIDER */
+        .slider-label { font-size: 0.75rem; color: var(--cyan); margin-bottom: 12px; font-family: 'Fira Code', monospace; letter-spacing: 1px; display: block; }
+        .paket-slider { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 12px; padding-bottom: 15px; -ms-overflow-style: none; scrollbar-width: none; transform: translateZ(30px); }
+        .paket-item {
+            flex: 0 0 140px; scroll-snap-align: center; position: relative;
+            background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px; padding: 20px 10px; cursor: pointer; text-align: center; transition: 0.3s ease; overflow: hidden;
+        }
+        .paket-item.active {
+            border-color: var(--green); background: linear-gradient(180deg, rgba(0, 255, 136, 0.1) 0%, rgba(0, 0, 0, 0.6) 100%);
+            box-shadow: 0 0 25px rgba(0, 255, 136, 0.15); transform: scale(1.05);
+        }
+        .paket-item.active::before { content: ''; position: absolute; inset: 0; border-radius: 14px; box-shadow: 0 0 15px var(--green) inset; opacity: 0.3; pointer-events: none; }
+        .paket-icon { font-size: 1.5rem; color: var(--text-muted); margin-bottom: 10px; transition: 0.3s; }
+        .paket-item.active .paket-icon { color: var(--green); text-shadow: 0 0 15px var(--green); transform: scale(1.1); }
+        .paket-item h4 { font-family: 'Orbitron', sans-serif; font-size: 0.9rem; color: #fff; margin-bottom: 5px; }
+        .paket-item p { font-family: 'Fira Code', monospace; font-size: 1.1rem; color: var(--gold); font-weight: 800; }
+        .badge {
+            position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(90deg, #ff003c, #ff8c00); color: #fff;
+            font-size: 0.5rem; font-weight: 800; padding: 4px 10px; border-bottom-left-radius: 6px; border-bottom-right-radius: 6px; letter-spacing: 1px; box-shadow: 0 5px 10px rgba(255, 0, 60, 0.4);
+        }
+
+        /* BUTTON */
+        .btn-submit { 
+            width: 100%; padding: 18px; border-radius: 12px; border: none; 
+            background: linear-gradient(90deg, var(--cyan), var(--green)); color: #000; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1rem; 
+            cursor: pointer; transition: 0.3s; letter-spacing: 2px; display: flex; justify-content: center; align-items: center; gap: 10px;
+            transform: translateZ(40px); position: relative; overflow: hidden;
+        }
+        .btn-submit::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: rgba(255,255,255,0.2); transform: rotate(45deg); transition: 0.5s; opacity: 0; }
+        .btn-submit:hover::after { opacity: 1; left: 100%; }
+        .btn-submit:hover { box-shadow: 0 0 30px rgba(0, 255, 136, 0.4); transform: translateZ(40px) scale(1.02); }
+
+        /* LOADING & RESULT OVERLAYS */
+        #loading-overlay { position: fixed; inset: 0; background: rgba(3, 3, 8, 0.85); backdrop-filter: blur(20px); z-index: 9999; display: none; flex-direction: column; justify-content: center; align-items: center; }
+        .loader-bar-container { width: 250px; height: 4px; background: rgba(255,255,255,0.05); border-radius: 4px; margin-top: 20px; overflow: hidden; }
+        .loader-bar { height: 100%; width: 0%; background: var(--cyan); box-shadow: 0 0 15px var(--cyan); transition: width 0.2s linear; }
+
+        #result-overlay { position: fixed; inset: 0; background: rgba(3, 3, 8, 0.95); backdrop-filter: blur(20px); z-index: 10000; display: none; flex-direction: column; justify-content: center; align-items: center; padding: 20px; overflow-y: auto; }
+        .result-card { background: var(--glass-bg); border: 1px solid var(--green); border-radius: 20px; padding: 30px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 0 60px rgba(0, 255, 136, 0.15); backdrop-filter: blur(30px); position: relative; transform: scale(0.9); transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        #result-overlay.active .result-card { transform: scale(1); }
+        .result-card::before { content: ''; position: absolute; top: 0; left: 10%; width: 80%; height: 1px; background: linear-gradient(90deg, transparent, var(--green), transparent); }
+        .result-title { font-family: 'Orbitron', sans-serif; font-size: 1.4rem; font-weight: 900; color: #fff; margin-bottom: 5px; letter-spacing: 1px; text-shadow: 0 0 10px var(--green); }
+        .result-sub { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 25px; }
+        .qr-container { background: #fff; padding: 10px; border-radius: 16px; display: inline-block; margin-bottom: 25px; box-shadow: 0 0 30px rgba(255,255,255,0.1); }
+        .qr-container img { width: 200px; height: 200px; display: block; }
+        .code-box { background: rgba(0,0,0,0.6); border: 1px dashed var(--cyan); border-radius: 12px; padding: 15px; margin-bottom: 25px; }
+        .code-label { font-family: 'Fira Code', monospace; font-size: 0.65rem; color: var(--cyan); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; }
+        .code-text { font-family: 'Fira Code', monospace; font-size: 1.6rem; color: #fff; font-weight: 800; letter-spacing: 4px; text-shadow: 0 0 10px var(--cyan); }
+        .btn-close { background: transparent; color: var(--green); border: 1px solid var(--green); padding: 14px 25px; border-radius: 12px; font-family: 'Orbitron', sans-serif; font-weight: 800; cursor: pointer; width: 100%; transition: 0.3s; letter-spacing: 1px;}
+        .btn-close:hover { background: var(--green); color: #000; box-shadow: 0 0 20px rgba(0,255,136,0.4); }
+    </style>
+</head>
+<body>
+
+    <div id="launcher">
+        <div class="launcher-ring"><i class="fas fa-microchip launcher-icon"></i></div>
+        <div class="launcher-text" id="launcher-text">INITIALIZING SYSTEM...</div>
+        <div class="launcher-progress"><div class="launcher-bar" id="launcher-bar"></div></div>
+    </div>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="container" id="main-container">
+        <div class="header">
+            <h1>EBOY BADAK</h1>
+            <p>WHATSAPP AUTOMATION SYSTEM V.2026</p>
+        </div>
+
+        <div class="glass-card" data-tilt data-tilt-max="5" data-tilt-speed="400" data-tilt-glare data-tilt-max-glare="0.1">
+            <div class="form-group">
+                <label>ENTER TARGET NUMBER</label>
+                <div class="input-wrapper">
+                    <i class="fab fa-whatsapp"></i>
+                    <input type="number" id="wa-number" class="form-control" placeholder="6281234567890" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="form-group" style="transform: translateZ(30px);">
+                <span class="slider-label">SELECT DURATION (SWIPE)</span>
+                <div class="paket-slider" id="paket-container"></div>
+            </div>
+
+            <button class="btn-submit" id="btn-daftar" onclick="daftarBot()">
+                <i class="fas fa-bolt"></i> DEPLOY NOW
+            </button>
+        </div>
+    </div>
+
+    <div id="loading-overlay">
+        <div class="launcher-ring" style="width: 80px; height: 80px;"><i class="fas fa-satellite-dish launcher-icon" style="font-size: 1.5rem;"></i></div>
+        <div class="loading-text" id="loading-text" style="margin-top: 20px; color: var(--cyan); font-family: 'Fira Code', monospace; letter-spacing: 2px;">CONNECTING...</div>
+        <div class="loader-bar-container"><div class="loader-bar" id="loader-bar"></div></div>
+    </div>
+
+    <div id="result-overlay">
+        <div class="result-card">
+            <i class="fas fa-check-circle" style="font-size: 2.5rem; color: var(--green); margin-bottom: 15px; filter: drop-shadow(0 0 10px var(--green));"></i>
+            <div class="result-title">ACCESS GRANTED</div>
+            <div class="result-sub">Scan QR Code atau masukkan Pairing Code.</div>
+            <div class="qr-container"><img id="result-qr" src="" alt="QR Code"></div>
+            <div class="code-box">
+                <div class="code-label">PAIRING CODE</div>
+                <div class="code-text" id="result-code">XXXX-XXXX</div>
+            </div>
+            <button class="btn-close" onclick="closeResult()">TUTUP PANEL</button>
+        </div>
+    </div>
+
+    <script>
+        // LAUNCHER
+        const launcherTexts = ["BOOTING KERNEL...", "LOADING MODULES...", "BYPASSING FIREWALL...", "SYSTEM READY."];
+        let barWidth = 0;
+        const launcherInterval = setInterval(() => {
+            barWidth += 5;
+            document.getElementById('launcher-bar').style.width = barWidth + '%';
+            if (barWidth === 30) document.getElementById('launcher-text').innerText = launcherTexts[1];
+            if (barWidth === 60) document.getElementById('launcher-text').innerText = launcherTexts[2];
+            if (barWidth === 90) document.getElementById('launcher-text').innerText = launcherTexts[3];
+            if (barWidth >= 100) {
+                clearInterval(launcherInterval);
+                setTimeout(() => {
+                    document.getElementById('launcher').style.opacity = '0';
+                    document.getElementById('launcher').style.visibility = 'hidden';
+                    document.getElementById('main-container').classList.add('loaded');
+                }, 500);
+            }
+        }, 40);
+
+        // CANVAS ANIMATION
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, particles;
+        function initCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            particles = [];
+            for (let i = 0; i < 70; i++) {
+                particles.push({ x: Math.random() * width, y: Math.random() * height, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5, r: Math.random() * 1.5 + 0.5 });
+            }
+        }
+        function animateCanvas() {
+            ctx.clearRect(0, 0, width, height);
+            for (let i = 0; i < particles.length; i++) {
+                let p = particles[i];
+                p.x += p.vx; p.y += p.vy;
+                if (p.x < 0 || p.x > width) p.vx *= -1;
+                if (p.y < 0 || p.y > height) p.vy *= -1;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0, 240, 255, 0.5)'; ctx.fill();
+                for (let j = i + 1; j < particles.length; j++) {
+                    let p2 = particles[j]; let dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+                    if (dist < 120) {
+                        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p2.x, p2.y); ctx.strokeStyle = `rgba(0, 240, 255, ${0.15 - dist/800})`; ctx.lineWidth = 0.5; ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(animateCanvas);
+        }
+        window.addEventListener('resize', initCanvas);
+        initCanvas(); animateCanvas();
+
+        // PAKET DATA
+        const PAKET = {
+            badak1: { label: '30 MENIT', harga: '2K', icon: 'fas fa-bolt', badge: '' },
+            badak2: { label: '5 JAM', harga: '5K', icon: 'fas fa-fire', badge: '' },
+            badak3: { label: '10 JAM', harga: '8K', icon: 'fas fa-gem', badge: '' },
+            badak4: { label: '15 JAM', harga: '12K', icon: 'fas fa-rocket', badge: '' },
+            badak5: { label: '20 JAM', harga: '20K', icon: 'fas fa-crown', badge: '' },
+            badak6: { label: '24 JAM', harga: '25K', icon: 'fas fa-star', badge: 'VIP' }
+        };
+        let selectedPaket = 'badak6';
+
+        function renderPaket() {
+            const container = document.getElementById('paket-container');
+            container.innerHTML = '';
+            Object.keys(PAKET).forEach(key => {
+                const p = PAKET[key];
+                const div = document.createElement('div');
+                div.className = `paket-item ${key === selectedPaket ? 'active' : ''}`;
+                div.onclick = () => { selectedPaket = key; renderPaket(); div.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); };
+                div.innerHTML = `
+                    ${p.badge ? `<div class="badge">${p.badge}</div>` : ''}
+                    <i class="${p.icon} paket-icon"></i>
+                    <h4>${p.label}</h4>
+                    <p>${p.harga}</p>
+                `;
+                container.appendChild(div);
+            });
+        }
+        renderPaket();
+
+        VanillaTilt.init(document.querySelectorAll(".glass-card"), { max: 8, speed: 400, glare: true, "max-glare": 0.2 });
+
+        // PROSES DAFTAR
+        async function daftarBot() {
+            const phone = document.getElementById('wa-number').value.trim();
+            if (!phone || phone.length < 10) return alert("Masukkan nomor WhatsApp yang valid!");
+
+            document.getElementById('loading-overlay').style.display = 'flex';
+            const loadingBar = document.getElementById('loader-bar');
+            const loadingText = document.getElementById('loading-text');
+            
+            let progress = 0;
+            const barInterval = setInterval(() => {
+                progress += 2;
+                loadingBar.style.width = progress + '%';
+                if(progress > 30) loadingText.innerText = "BYPASSING SECURITY...";
+                if(progress > 60) loadingText.innerText = "GENERATING NODE...";
+                if(progress > 90) loadingText.innerText = "FINALIZING...";
+            }, 100);
+
+            try {
+                // =======================================================
+                // GANTI URL DI BAWAH INI DENGAN LINK CLOUDFLARE TUNNEL KAMU
+                // =======================================================
+                const API_URL = 'https://random-word.trycloudflare.com/api/register'; 
+                
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: phone, packageId: selectedPaket })
+                });
+                const res = await response.json();
+
+                clearInterval(barInterval);
+
+                if (res.status) {
+                    loadingBar.style.width = '100%';
+                    setTimeout(() => {
+                        document.getElementById('loading-overlay').style.display = 'none';
+                        document.getElementById('result-qr').src = res.qr;
+                        document.getElementById('result-code').innerText = res.code;
+                        document.getElementById('result-overlay').style.display = 'flex';
+                        setTimeout(() => document.getElementById('result-overlay').classList.add('active'), 10);
+                    }, 500);
+                } else {
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    alert("Gagal: " + res.msg);
+                }
+            } catch (error) {
+                clearInterval(barInterval);
+                document.getElementById('loading-overlay').style.display = 'none';
+                alert("Server Offline. Pastikan Bot & Tunnel menyala.");
+            }
+        }
+
+        function closeResult() {
+            document.getElementById('result-overlay').classList.remove('active');
+            setTimeout(() => {
+                document.getElementById('result-overlay').style.display = 'none';
+                document.getElementById('wa-number').value = '';
+            }, 300);
+        }
+    </script>
+</body>
+</html>
