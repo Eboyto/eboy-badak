@@ -1,0 +1,18 @@
+{
+  "name": "eboy-badak-wa",
+  "version": "1.0.0",
+  "description": "WhatsApp Badak Anti Blokir & Anti Kenon by Eboygcr",
+  "type": "module",
+  "main": "eboy-wa.js",
+  "scripts": {
+    "start": "node eboy-wa.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "pino": "^9.5.0",
+    "qrcode": "^1.5.4"
+  }
+}
