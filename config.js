@@ -3,8 +3,29 @@ export const CONFIG = {
   ownerNumbers: ['6287892764740', '087892764740'],
   ownerName: 'eboygcr',
   stickerUrl: 'https://raw.githubusercontent.com/WhatsApp/stickers/main/Android/app/src/main/assets/1.webp',
-  
-  // URUTAN PAKET DARI TERCEPAT SAMPAI TERLAMA
+
+  channelJid: '0029Vb9FGc2KgsNxEKv1kS1y@newsletter',
+  channelUrl: 'https://whatsapp.com/channel/0029Vb9FGc2KgsNxEKv1kS1y',
+
+  antiBan: {
+    jitterFactor: 0.45,
+    minReplyDelay: 1200,
+    maxReplyDelay: 4800,
+    typingMaxMs: 3500,
+    spamWindowMs: 10000,
+    spamThreshold: 3,
+    spamHardThreshold: 5,
+    autoClearAfterMs: 60000,
+    pushMinGapMs: 18000,
+    pushMaxGapMs: 55000,
+    maxPushPerRun: 50
+  },
+
+  reportKeywords: [
+    'lapor', 'report', 'polisi', 'hukum', 'block', 'blokir',
+    'spam report', 'laporkan', 'kriminal', 'penipuan', 'scam'
+  ],
+
   paket: {
     badak1: { label: '30 MENIT', durMs: 30 * 60 * 1000, harga: '2K' },
     badak2: { label: '5 JAM', durMs: 5 * 60 * 60 * 1000, harga: '5K' },
