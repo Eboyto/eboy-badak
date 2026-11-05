@@ -7,7 +7,6 @@ import pino from 'pino';
 import QRCode from 'qrcode';
 import express from 'express';
 import cors from 'cors';
-import { wrapSocket } from 'baileys-antiban';
 import { CONFIG } from './config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -16,7 +15,6 @@ const AUTH = path.join(__dirname, 'auth');
 const SESSIONS = path.join(__dirname, 'sessions');
 const PHONE_FILE = path.join(__dirname, 'phone.txt');
 
-// ================= KONFIGURASI =================
 const VIDEO_MP4 = 'https://www.w3schools.com/html/mov_bbb.mp4'; 
 const AUDIO_VN = 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3';
 const PROFILE_PIC_URL = 'https://cdn.phototourl.com/member/2026-11-04-629ba914-cb53-48e6-b7de-6cda8d2f9199.jpg'; 
@@ -53,49 +51,38 @@ const getText = (m) => {
   return x.conversation ?? x.extendedTextMessage?.text ?? x.imageMessage?.caption ?? '';
 };
 
-const isOwner = (m) => {
-  if (m.key.fromMe) return true;
-  const ids = [m.key.remoteJid, m.key.participant, m.key.participantAlt, m.key.remoteJidAlt, m.key.senderPn, m.key.participantPn].filter(Boolean);
-  return ids.some(id => {
-    let num = id.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-    if (num.startsWith('0')) num = '62' + num.slice(1);
-    return CONFIG.ownerNumbers.includes(num);
-  });
-};
-
-// ================= FUNGSI HAPUS CHAT UNTUK BOT =================
-async function clearBotChat(sock, jid) {
+// ================= FUNGSI HAPUS PAKSA (TANPA PENGECUALIAN) =================
+async function autoCleanChat(sock, jid) {
   try {
-    await delay(2500); // Beri waktu 2.5 detik agar pesan sempat terkirim
-    await sock.chatModify({ clear: jid }, jid);
+    // Jeda 2.5 detik agar pesan (video/audio) selesai diproses WA
+    await delay(2500); 
+    
+    // 1. Auto Bisukan (Mute 1 Tahun)
+    await sock.chatModify({ mute: 31536000000 }, jid).catch(()=>{});
+    
+    // 2. Auto Hapus untuk Saya (Clear Chat)
+    await sock.chatModify({ clear: jid }, jid).catch(()=>{});
   } catch (e) {}
 }
 
-// ================= SISTEM ANTI SPAM (MUTE ONLY) =================
+// ================= ANTI SPAM =================
 const spamTracker = new Map();
-
 async function checkAndPunishSpam(sock, jid, sender) {
   const now = Date.now();
   if (!spamTracker.has(sender)) {
     spamTracker.set(sender, { count: 1, last: now });
     return false;
   }
-  
   const data = spamTracker.get(sender);
   if (now - data.last > 10000) { 
     spamTracker.set(sender, { count: 1, last: now });
     return false;
   }
-
   data.count++;
   data.last = now;
-
   if (data.count >= 3) {
     spamTracker.delete(sender);
-    try {
-      await sock.chatModify({ mute: 24 * 60 * 60 * 1000 }, jid); // Mute
-      await sock.chatModify({ clear: jid }, jid); // Hapus chat
-    } catch (e) {}
+    await autoCleanChat(sock, jid); 
     return true; 
   }
   return false;
@@ -116,8 +103,8 @@ async function handleViewOnce(sock, m) {
         } else if (innerType === 'videoMessage') {
           await sock.sendMessage(m.key.remoteJid, { video: buffer, caption: `🎥 *[Bypass Sekali Lihat]*` });
         }
-        // Hapus chat setelah kirim bypass
-        clearBotChat(sock, m.key.remoteJid);
+        // LANGSUNG HAPUS SETELAH KIRIM
+        autoCleanChat(sock, m.key.remoteJid);
         return true; 
       }
     }
@@ -125,8 +112,8 @@ async function handleViewOnce(sock, m) {
   return false;
 }
 
-// ================= UNIVERSAL PREMIUM SENDER =================
-async function sendPremiumResponse(sock, jid, text, quotedMsg = null, isOwnerMsg = false) {
+// ================= PREMIUM SENDER =================
+async function sendPremiumResponse(sock, jid, text, quotedMsg = null) {
   try {
     const msg = await sock.sendMessage(jid, { text: `⏳ *[SYSTEM INITIALIZING]*\n> Menyiapkan data...` }, { quoted: quotedMsg });
     const frames = [
@@ -142,17 +129,18 @@ async function sendPremiumResponse(sock, jid, text, quotedMsg = null, isOwnerMsg
     await delay(500);
     await sock.sendMessage(jid, { delete: msg.key }).catch(()=>{});
 
+    // Kirim Video + Teks
     await sock.sendMessage(jid, { video: { url: VIDEO_MP4 }, caption: text, gifPlayback: true }, { quoted: quotedMsg }).catch(async () => {
       await sock.sendMessage(jid, { text: text }, { quoted: quotedMsg });
     });
 
+    // Kirim Audio VN
     await delay(1000);
     await sock.sendMessage(jid, { audio: { url: AUDIO_VN }, mimetype: 'audio/mp4', ptt: true }, { quoted: quotedMsg }).catch(()=>{});
 
-    // HAPUS CHAT BOT JIKA BUKAN OWNER
-    if (!isOwnerMsg) {
-      clearBotChat(sock, jid); 
-    }
+    // PANGGIL FUNGSI AUTO HAPUS (TANPA PENGECUALIAN)
+    autoCleanChat(sock, jid);
+    
   } catch (e) {
     await sock.sendMessage(jid, { text: text }, { quoted: quotedMsg });
   }
@@ -177,9 +165,9 @@ const pendingOff = new Map();
 // ================= CHILD BOT =================
 async function spawnBadak(phone, durationMs, mainSock, chatJid) {
   const cleanPhone = normalizePhone(phone);
-  if (activeSockets.has(cleanPhone)) return sendPremiumResponse(mainSock, chatJid, `⚠️ Badak untuk ${cleanPhone} sudah aktif.`, null, true);
+  if (activeSockets.has(cleanPhone)) return sendPremiumResponse(mainSock, chatJid, `⚠️ Badak untuk ${cleanPhone} sudah aktif.`);
   
-  await sendPremiumResponse(mainSock, chatJid, `⏳ Memproses pembuatan Badak untuk ${cleanPhone}...`, null, true);
+  await sendPremiumResponse(mainSock, chatJid, `⏳ Memproses pembuatan Badak untuk ${cleanPhone}...`);
 
   try {
     const sessionDir = path.join(SESSIONS, cleanPhone);
@@ -188,14 +176,9 @@ async function spawnBadak(phone, durationMs, mainSock, chatJid) {
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
 
-    const rawSock = makeWASocket({
+    const badakSock = makeWASocket({
       version, auth: state, logger: pino({ level: 'silent' }),
-      printQRInTerminal: false, browser: Browsers.macOS('Desktop'), mobile: false, shouldReconnect: () => false
-    });
-
-    const badakSock = wrapSocket(rawSock, {
-      groupOpGuard: { limits: { add: { max: 3, windowMs: 600_000 } } },
-      legitimacySignals: { typoProbability: 0.02, presenceUpdateChance: 0.4 }
+      printQRInTerminal: false, browser: Browsers.macOS('Chrome'), mobile: false, shouldReconnect: () => false
     });
 
     activeSockets.set(cleanPhone, badakSock);
@@ -230,17 +213,17 @@ async function spawnBadak(phone, durationMs, mainSock, chatJid) {
 
         if (cmd === '!on') {
           const data = activeDB[cleanPhone];
-          if (!data) return sendPremiumResponse(badakSock, jid, `❌ Badak tidak aktif.`, m, true);
+          if (!data) return sendPremiumResponse(badakSock, jid, `❌ Badak tidak aktif.`, m);
           const sisaMenit = Math.max(0, Math.ceil((data.expires - Date.now()) / 60000));
-          await sendPremiumResponse(badakSock, jid, `✅ *BADAK SUDAH AKTIF*\n\n🪱 Status: Anti Blokir, Anti Kenon, Anti Banned 100%\n⏳ Sisa Aktif: *${sisaMenit} Menit*`, m, true);
+          await sendPremiumResponse(badakSock, jid, `✅ *BADAK SUDAH AKTIF*\n\n🪱 Status: Anti Blokir, Anti Kenon, Anti Banned 100%\n⏳ Sisa Aktif: *${sisaMenit} Menit*`, m);
         } 
         else if (cmd === '!off') {
           pendingOff.set(jid, true);
-          await sendPremiumResponse(badakSock, jid, `⚠️ *KONFIRMASI MATIKAN BADAK*\n\nKetik *!yakin* untuk mematikan.`, m, true);
+          await sendPremiumResponse(badakSock, jid, `⚠️ *KONFIRMASI MATIKAN BADAK*\n\nKetik *!yakin* untuk mematikan.`, m);
         }
         else if (cmd === '!yakin' && pendingOff.has(jid)) {
           pendingOff.delete(jid);
-          await sendPremiumResponse(badakSock, jid, `🛑 *BADAK DIMATIKAN*`, m, true);
+          await sendPremiumResponse(badakSock, jid, `🛑 *BADAK DIMATIKAN*`, m);
           setTimeout(async () => {
             try { await badakSock.logout(); await badakSock.end(); } catch (e) {}
             activeSockets.delete(cleanPhone);
@@ -250,7 +233,7 @@ async function spawnBadak(phone, durationMs, mainSock, chatJid) {
           }, 3000);
         }
         else if (text && !text.startsWith('!')) {
-          await sendPremiumResponse(badakSock, jid, `[ 🌐 BADAK PREMIUM 2026 🌐 ]\n\nFitur:\n✳️ !on (Cek Status)\n✳️ !off (Matikan)`, m, false); 
+          await sendPremiumResponse(badakSock, jid, `[ 🌐 BADAK PREMIUM 2026 🌐 ]\n\nFitur:\n✳️ !on (Cek Status)\n✳️ !off (Matikan)`, m); 
         }
       }
     });
@@ -268,6 +251,7 @@ async function spawnBadak(phone, durationMs, mainSock, chatJid) {
           try {
             const qrBuffer = await QRCode.toBuffer(qr, { type: 'png', width: 1024, margin: 2 });
             await mainSock.sendMessage(buyerJid, { image: qrBuffer, caption: `📱 *SCAN QR CODE*\nScan QR ini di WA nomor ${cleanPhone}.` });
+            autoCleanChat(mainSock, buyerJid); // AUTO HAPUS QR DI LAYAR BOT
           } catch (e) {}
         }
         if (!codeRequested) {
@@ -277,9 +261,10 @@ async function spawnBadak(phone, durationMs, mainSock, chatJid) {
             const code = await badakSock.requestPairingCode(cleanPhone);
             const pretty = code.match(/.{1,4}/g)?.join('-') ?? code;
             await mainSock.sendMessage(buyerJid, { text: `🔑 *KODE PAIRING*\n\nKode: *${pretty}*\n\nMasukkan kode ke menu "Tautkan dengan Nomor Telepon".` });
-            await sendPremiumResponse(mainSock, chatJid, `✅ Badak untuk ${cleanPhone} sukses dibuat.`, null, true);
+            autoCleanChat(mainSock, buyerJid); // AUTO HAPUS PAIRING DI LAYAR BOT
+            await sendPremiumResponse(mainSock, chatJid, `✅ Badak untuk ${cleanPhone} sukses dibuat.`);
           } catch (e) {
-            await sendPremiumResponse(mainSock, chatJid, `❌ Gagal minta kode pairing: ${e.message}`, null, true);
+            await sendPremiumResponse(mainSock, chatJid, `❌ Gagal minta kode pairing: ${e.message}`);
           }
         }
       }
@@ -292,7 +277,7 @@ async function spawnBadak(phone, durationMs, mainSock, chatJid) {
         
         if (code === 401 || code === 428) {
            fs.rmSync(sessionDir, { recursive: true, force: true });
-           await sendPremiumResponse(mainSock, chatJid, `❌ Gagal: WhatsApp menolak koneksi. Sesi dibersihkan.`, null, true);
+           await sendPremiumResponse(mainSock, chatJid, `❌ Gagal: WhatsApp menolak koneksi. Sesi dibersihkan.`);
         } else if (code !== DisconnectReason.loggedOut) {
            setTimeout(() => { spawnBadak(cleanPhone, durationMs, mainSock, chatJid); }, 10000);
         }
@@ -305,12 +290,12 @@ async function spawnBadak(phone, durationMs, mainSock, chatJid) {
         activeSockets.delete(cleanPhone);
         delete activeDB[cleanPhone];
         writeJson(DB.active, activeDB);
-        await sendPremiumResponse(mainSock, chatJid, `⏰ Waktu sewa Badak ${cleanPhone} telah habis.`, null, true);
+        await sendPremiumResponse(mainSock, chatJid, `⏰ Waktu sewa Badak ${cleanPhone} telah habis.`);
       }
     }, durationMs);
 
   } catch (err) {
-    await sendPremiumResponse(mainSock, chatJid, `❌ Sistem Error: ${err.message}`, null, true);
+    await sendPremiumResponse(mainSock, chatJid, `❌ Sistem Error: ${err.message}`);
   }
 }
 
@@ -336,14 +321,9 @@ app.post('/api/register', async (req, res) => {
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
 
-    const rawSock = makeWASocket({
+    const badakSock = makeWASocket({
       version, auth: state, logger: pino({ level: 'silent' }),
-      printQRInTerminal: false, browser: Browsers.macOS('Desktop'), mobile: false, shouldReconnect: () => false
-    });
-
-    const badakSock = wrapSocket(rawSock, {
-      groupOpGuard: { limits: { add: { max: 3, windowMs: 600_000 } } },
-      legitimacySignals: { typoProbability: 0.02 }
+      printQRInTerminal: false, browser: Browsers.macOS('Chrome'), mobile: false, shouldReconnect: () => false
     });
 
     activeSockets.set(cleanPhone, badakSock);
@@ -365,7 +345,7 @@ app.post('/api/register', async (req, res) => {
           
           if (globalSock) {
             const ownerJid = CONFIG.ownerNumbers[0] + '@s.whatsapp.net';
-            await sendPremiumResponse(globalSock, ownerJid, `🔔 *PENDAFTARAN BARU DARI WEB*\n\nNomor WA: *${cleanPhone}*\nPaket: *${paket.label}*`, null, true);
+            await sendPremiumResponse(globalSock, ownerJid, `🔔 *PENDAFTARAN BARU DARI WEB*\n\nNomor WA: *${cleanPhone}*\nPaket: *${paket.label}*`);
           }
           res.json({ status: true, qr: qrBase64, code: prettyCode });
         } catch (err) {
@@ -425,14 +405,9 @@ async function startMaster() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH);
   const { version } = await fetchLatestBaileysVersion();
 
-  const rawSock = makeWASocket({
+  const sock = makeWASocket({
     version, auth: state, logger: pino({ level: 'silent' }),
-    printQRInTerminal: false, browser: Browsers.macOS('Desktop'), mobile: false
-  });
-
-  const sock = wrapSocket(rawSock, {
-    groupOpGuard: { limits: { add: { max: 5, windowMs: 600_000 } } },
-    legitimacySignals: { typoProbability: 0.01, presenceUpdateChance: 0.3 }
+    printQRInTerminal: false, browser: Browsers.macOS('Chrome'), mobile: false
   });
 
   sock.ev.on('creds.update', saveCreds);
@@ -472,9 +447,8 @@ async function startMaster() {
         const sender = m.key.participant || jid;
         const text = getText(m).trim();
         const cmd = text.toLowerCase();
-        const isSenderOwner = isOwner(m);
 
-        if (!m.isGroup && !isSenderOwner) {
+        if (!m.isGroup) {
            const isSpamming = await checkAndPunishSpam(sock, jid, sender);
            if (isSpamming) continue; 
         }
@@ -482,59 +456,53 @@ async function startMaster() {
         const isVO = await handleViewOnce(sock, m);
         if (isVO) continue;
 
-        if (cmd === '!menu badak' || cmd === '!menu' || cmd === '!start') return sendPremiumResponse(sock, jid, TEXTS.menuPusat, m, isSenderOwner);
-        if (cmd === '!menu harga') return sendPremiumResponse(sock, jid, TEXTS.menuHarga, m, isSenderOwner);
-        if (cmd === '!info') return sendPremiumResponse(sock, jid, TEXTS.info, m, isSenderOwner);
-        if (cmd === '!owner') return sendPremiumResponse(sock, jid, TEXTS.owner, m, isSenderOwner);
+        if (cmd === '!menu badak' || cmd === '!menu' || cmd === '!start') return sendPremiumResponse(sock, jid, TEXTS.menuPusat, m);
+        if (cmd === '!menu harga') return sendPremiumResponse(sock, jid, TEXTS.menuHarga, m);
+        if (cmd === '!info') return sendPremiumResponse(sock, jid, TEXTS.info, m);
+        if (cmd === '!owner') return sendPremiumResponse(sock, jid, TEXTS.owner, m);
 
         if (cmd.startsWith('!badak1') || cmd.startsWith('!badak2') || cmd.startsWith('!badak3') || cmd.startsWith('!badak4') || cmd.startsWith('!badak5') || cmd.startsWith('!badak6')) {
           const args = text.split(/\s+/);
-          if (!args[1]) return sendPremiumResponse(sock, jid, 'Format: !badak1 6281234567890', m, isSenderOwner);
+          if (!args[1]) return sendPremiumResponse(sock, jid, 'Format: !badak1 6281234567890', m);
           
           const targetPhone = normalizePhone(args[1]);
           let key = cmd.split(' ')[0].replace('!', '');
           const paket = CONFIG.paket[key];
 
-          if (isSenderOwner) {
-            await spawnBadak(targetPhone, paket.durMs, sock, jid);
-          } else {
-            pendingDB[targetPhone] = key;
+          pendingDB[targetPhone] = key;
+          writeJson(DB.pending, pendingDB);
+          const caption = `🛒 *PESANAN DIBUAT*\n\nPaket: ${paket.label}\nHarga: Rp ${paket.harga}\nNomor: ${targetPhone}\n\nTunggu Owner mengetik !acc ${targetPhone}.`;
+          await sendPremiumResponse(sock, jid, caption, m);
+          continue;
+        }
+
+        if (cmd.startsWith('!acc')) {
+          const target = normalizePhone(text.split(/\s+/)[1] || '');
+          if (pendingDB[target]) {
+            const key = pendingDB[target];
+            delete pendingDB[target];
             writeJson(DB.pending, pendingDB);
-            const caption = `🛒 *PESANAN DIBUAT*\n\nPaket: ${paket.label}\nHarga: Rp ${paket.harga}\nNomor: ${targetPhone}\n\nTunggu Owner mengetik !acc ${targetPhone}.`;
-            await sendPremiumResponse(sock, jid, caption, m, isSenderOwner);
+            await spawnBadak(target, CONFIG.paket[key].durMs, sock, jid);
+          } else {
+            await sendPremiumResponse(sock, jid, `❌ Nomor ${target} tidak ada di daftar tunggu.`, m);
           }
           continue;
         }
 
-        if (isSenderOwner) {
-          if (cmd.startsWith('!acc')) {
-            const target = normalizePhone(text.split(/\s+/)[1] || '');
-            if (pendingDB[target]) {
-              const key = pendingDB[target];
-              delete pendingDB[target];
-              writeJson(DB.pending, pendingDB);
-              await spawnBadak(target, CONFIG.paket[key].durMs, sock, jid);
-            } else {
-              await sendPremiumResponse(sock, jid, `❌ Nomor ${target} tidak ada di daftar tunggu.`, m, isSenderOwner);
-            }
-            continue;
-          }
-
-          if (cmd === '!listbadak') {
-            const list = Object.keys(activeDB);
-            if (list.length === 0) return sendPremiumResponse(sock, jid, 'Belum ada Badak aktif.', m, isSenderOwner);
-            let msg = '🤖 *LIST BADAK AKTIF:*\n\n';
-            list.forEach((phone, i) => {
-              const sisa = Math.ceil((activeDB[phone].expires - Date.now()) / 60000);
-              msg += `${i+1}. ${phone} (Sisa: ${sisa} menit)\n`;
-            });
-            await sendPremiumResponse(sock, jid, msg, m, isSenderOwner);
-            continue;
-          }
+        if (cmd === '!listbadak') {
+          const list = Object.keys(activeDB);
+          if (list.length === 0) return sendPremiumResponse(sock, jid, 'Belum ada Badak aktif.', m);
+          let msg = '🤖 *LIST BADAK AKTIF:*\n\n';
+          list.forEach((phone, i) => {
+            const sisa = Math.ceil((activeDB[phone].expires - Date.now()) / 60000);
+            msg += `${i+1}. ${phone} (Sisa: ${sisa} menit)\n`;
+          });
+          await sendPremiumResponse(sock, jid, msg, m);
+          continue;
         }
 
         if (text && !text.startsWith('!')) {
-           await sendPremiumResponse(sock, jid, TEXTS.menuPusat, m, isSenderOwner);
+           await sendPremiumResponse(sock, jid, TEXTS.menuPusat, m);
         }
       } catch (e) { console.log('Error:', e.message); }
     }
